@@ -48,10 +48,12 @@ public record VaultFactory(User user) {
 
     private static VaultFactory instance;
     private static String defaultKdf = "Argon2";
+    private static final String MOCK_VAULT_PASSWD = "Contraseña";
 
     public VaultFactory(User user) {
         this.user = Objects.requireNonNull(user, "user must not be null");
     }
+
 
     /**
      * Returns the process-wide {@link VaultFactory} instance for the given user.
@@ -71,6 +73,7 @@ public record VaultFactory(User user) {
         return instance;
     }
 
+
     /**
      * Resets the global factory instance.
      * <p>
@@ -79,6 +82,7 @@ public record VaultFactory(User user) {
     public static void resetInstance() {
         instance = null;
     }
+
 
     /**
      * Builds an in-memory vault populated with demo credentials for the user
@@ -89,9 +93,10 @@ public record VaultFactory(User user) {
      *
      * @return a demo {@link Vault} instance
      */
-    public Vault mockVault() throws GeneralSecurityException {
-        return mockVault(user);
+    public Vault getMockVault() throws GeneralSecurityException {
+        return getMockVault(user);
     }
+
 
     /**
      * Builds an in-memory vault populated with demo credentials for the given user.
@@ -102,11 +107,11 @@ public record VaultFactory(User user) {
      * @param user logical owner for the returned vault
      * @return a demo {@link Vault} instance
      */
-    public Vault mockVault(User user) throws GeneralSecurityException {
+    public Vault getMockVault(User user) throws GeneralSecurityException {
         Objects.requireNonNull(user, "user must not be null");
 
         Vault vault = new Vault(new PBKDF2VaultEncryptingStrategy(
-                    "Contraseña",
+                    MOCK_VAULT_PASSWD,
                     generateSalt(),
                     true
                 ),
@@ -162,6 +167,7 @@ public record VaultFactory(User user) {
 
         return vault;
     }
+
 
     /**
      * Reconstructs a {@link Vault} instance from its JSON representation.

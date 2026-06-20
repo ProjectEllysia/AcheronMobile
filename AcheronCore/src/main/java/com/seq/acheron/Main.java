@@ -1,11 +1,9 @@
 package com.seq.acheron;
 
-import com.seq.acheron.vault.User;
-import com.seq.acheron.util.CryptoUtils;
 import com.seq.acheron.util.Pair;
+import com.seq.acheron.vault.User;
 import com.seq.acheron.vault.Vault;
 import com.seq.acheron.vault.VaultFactory;
-import com.seq.acheron.vault.storables.Account;
 
 import java.security.GeneralSecurityException;
 
@@ -21,19 +19,20 @@ public class Main {
                 )
         );
 
-        Vault mockVault = vf.mockVault().encryptAll();
-        System.out.println("Vault mock desencriptado:\n" +
-                mockVault
-                        .decryptAll()
-                        .toJson()
+        Vault mockVault = vf.getMockVault();
+        Pair<Vault, String> pair = vf.getRestorationVault(mockVault);
+        System.out.println("La cotraseña es: " + pair.right());
+
+        Vault newVault = vf.fromJson(
+                pair.left()
+                        .encryptAll()
+                        .toJson(),
+                pair.right()
         );
-        Vault newVault = vf.fromJson(mockVault.encryptAll().toJson(), "Contraseña");
-        System.out.println("Vault encriptado: \n" + mockVault);
-        System.out.println("Vault derivado desencriptado:\n" +
-                newVault
-                .decryptAll()
-                .toJson()
-        );
-        System.out.println("Son el mismo Vault: " + (newVault.equals(mockVault.decryptAll())));
+
+        System.out.println("Vault encriptado");
+        System.out.println(newVault);
+        System.out.println("Vault desencriptado");
+        System.out.println(newVault.decryptAll());
     }
 }
