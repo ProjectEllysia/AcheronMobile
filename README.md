@@ -1,6 +1,23 @@
-# Acheron Mobile
+<!-- prettier-ignore -->
+<div align="center">
 
-**SeQ · Bóveda de secretos**
+<img src="./app/src/main/ic_launcher-playstore.png" alt="Acheron" height="110" />
+
+# SeQ — Acheron — Mobile Vault
+
+[![Kotlin 2.2](https://img.shields.io/badge/Kotlin-2.2-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Jetpack Compose](https://img.shields.io/badge/Jetpack-Compose-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+[![Android API 24+](https://img.shields.io/badge/Android-API%2024+-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
+[![BouncyCastle](https://img.shields.io/badge/Crypto-BouncyCastle-A91D22?style=flat-square)](https://www.bouncycastle.org)
+[![Gradle 9](https://img.shields.io/badge/Gradle-9-02303A?style=flat-square&logo=gradle&logoColor=white)](https://gradle.org)
+
+[Overview](#overview) · [Features](#features) · [Architecture](#architecture) · [Getting started](#getting-started) · [Tech stack](#tech-stack) · [Related projects](#related-projects)
+
+---
+
+</div>
+
+## Overview
 
 Acheron is the Android client of the **SeQ** suite: an encrypted vault for credentials, cards, identities, notes, and other sensitive data. It guards secrets locally with Argon2id-derived keys while syncing them against a SeQ backend.
 
