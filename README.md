@@ -1,7 +1,7 @@
 <!-- prettier-ignore -->
 <div align="center">
 
-<img src="./app/src/main/ic_launcher-playstore.png" alt="Acheron" height="110" />
+<img src="./resources/images/acheron/SeQ-Acheron-Gold-BgW.png" alt="Acheron" height="110" />
 
 # SeQ — Acheron — Mobile Vault
 
