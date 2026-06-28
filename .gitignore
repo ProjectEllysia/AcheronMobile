@@ -1,1 +1,4 @@
 gradle-daemon-jvm.properties
+
+.gradle
+.idea
