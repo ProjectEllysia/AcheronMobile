@@ -4,9 +4,12 @@ import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import androidx.core.content.edit
+import com.seq.acheronmobile.data.model.ApiErrorResponse
 import com.seq.acheronmobile.data.model.RefreshTokenRequest
 import com.seq.acheronmobile.data.network.SeqApiService
+import com.seq.acheronmobile.di.SessionEvents
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 
 /**
  * Almacena y recupera los tokens OAuth de forma segura usando
@@ -37,6 +40,8 @@ class TokenRepository(context: Context) {
         private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_EXPIRES_AT    = "expires_at"
         private const val KEY_USERNAME      = "username"
+
+        private val errorJson = Json { ignoreUnknownKeys = true; isLenient = true }
     }
 
     fun saveUsername(username: String) {
@@ -94,11 +99,25 @@ class TokenRepository(context: Context) {
                 )
                 body.accessToken
             } else {
+                // Si el refresh falló porque la contraseña de acceso cambió,
+                // señalar el motivo para que la UI muestre la pantalla dedicada.
+                if (refreshFailedByPasswordChange(response.errorBody()?.string())) {
+                    SessionEvents.signalEnd("password_changed")
+                }
                 clearTokens()
                 null
             }
         } catch (e: Exception) {
             null
+        }
+    }
+
+    private fun refreshFailedByPasswordChange(body: String?): Boolean {
+        if (body.isNullOrBlank()) return false
+        return try {
+            errorJson.decodeFromString<ApiErrorResponse>(body).isPasswordChanged()
+        } catch (_: Exception) {
+            false
         }
     }
 }
