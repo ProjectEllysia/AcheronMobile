@@ -2,10 +2,10 @@ package com.seq.acheronmobile
 
 import android.graphics.Color
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.fragment.app.FragmentActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +18,7 @@ import com.seq.acheronmobile.data.network.NetworkModule
 import com.seq.acheronmobile.data.repository.AuthRepository
 import com.seq.acheronmobile.data.repository.TokenRepository
 import com.seq.acheronmobile.data.repository.VaultRemoteDataSource
+import com.seq.acheronmobile.data.security.BiometricMasterPasswordStore
 import com.seq.acheronmobile.data.vault.VaultCryptoService
 import com.seq.acheronmobile.di.VaultServiceLocator
 import com.seq.acheronmobile.navigation.AcheronNavGraph
@@ -25,7 +26,7 @@ import com.seq.acheronmobile.ui.login.LoginViewModel
 import com.seq.acheronmobile.ui.theme.AcheronMobileTheme
 import com.seq.acheronmobile.ui.vault.VaultViewModel
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private val loginViewModel: LoginViewModel by lazy {
         val tokenRepo = TokenRepository(applicationContext)
@@ -52,6 +53,7 @@ class MainActivity : ComponentActivity() {
         // Init vault services (recreated on process death)
         VaultServiceLocator.cryptoService = VaultCryptoService()
         VaultServiceLocator.remoteDataSource = VaultRemoteDataSource()
+        VaultServiceLocator.biometricStore = BiometricMasterPasswordStore(applicationContext)
         // Restaura el username de la sesion activa: necesario para validar el
         // checker del vault si se arranca directamente en MASTER_KEY (ver #3).
         VaultServiceLocator.username = tokenRepo.getUsername() ?: ""
