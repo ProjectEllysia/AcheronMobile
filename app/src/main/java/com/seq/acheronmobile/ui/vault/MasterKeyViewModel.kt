@@ -12,7 +12,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 data class MasterKeyUiState(
     val masterPassword: String = "",
@@ -24,23 +26,36 @@ data class MasterKeyUiState(
     // null = aun comprobando si existe boveda; true = existe (desbloquear);
     // false = no existe (crear). probeError != null = la comprobacion fallo.
     val vaultExists: Boolean? = null,
-    val probeError: String? = null
+    val probeError: String? = null,
+    // ── Biometría ──
+    val biometricAvailable: Boolean = false,
+    val biometricEnrolled: Boolean = false,
+    // Tras un desbloqueo MANUAL correcto, ofrecer activar la huella antes de entrar.
+    val offerBiometricEnroll: Boolean = false,
 )
 
 class MasterKeyViewModel : ViewModel() {
 
     private val crypto = VaultServiceLocator.cryptoService
     private val remote = VaultServiceLocator.remoteDataSource
+    private val biometric = VaultServiceLocator.biometricStore
 
     // Blob cifrado de la boveda obtenido durante la comprobacion; se reutiliza
     // al desbloquear para no volver a pedirlo al servidor.
     private var cachedVaultJson: JsonObject? = null
 
-    private val _uiState = MutableStateFlow(MasterKeyUiState())
+    private val _uiState = MutableStateFlow(
+        MasterKeyUiState(biometricEnrolled = biometric.isEnabled())
+    )
     val uiState: StateFlow<MasterKeyUiState> = _uiState.asStateFlow()
 
     init {
         checkVault()
+    }
+
+    /** La UI informa si el dispositivo tiene biometría utilizable. */
+    fun setBiometricAvailable(available: Boolean) {
+        _uiState.update { it.copy(biometricAvailable = available) }
     }
 
     /**
@@ -86,7 +101,15 @@ class MasterKeyViewModel : ViewModel() {
             _uiState.update { it.copy(errorMessage = "Introduce la clave maestra") }
             return
         }
+        doUnlock(password, fromBiometric = false)
+    }
 
+    /** Desbloqueo con la contraseña maestra recuperada tras autenticación biométrica. */
+    fun onBiometricUnlock(password: String) {
+        doUnlock(password, fromBiometric = true)
+    }
+
+    private fun doUnlock(password: String, fromBiometric: Boolean) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, isCreating = false, errorMessage = null) }
 
@@ -112,11 +135,32 @@ class MasterKeyViewModel : ViewModel() {
             crypto.unlockFromJson(VaultServiceLocator.username, vault.toString(), password)
             when (val state = crypto.state.value) {
                 is VaultState.Unlocked -> {
-                    _uiState.update { it.copy(isLoading = false, unlocked = true) }
+                    rememberMetadataVersion(vault)
+                    // Tras un desbloqueo manual, ofrecer activar la huella (si procede)
+                    // ANTES de navegar; si no, entrar directamente.
+                    val offer = _uiState.value.biometricAvailable &&
+                        !fromBiometric && !biometric.isEnabled()
+                    _uiState.update {
+                        it.copy(isLoading = false, offerBiometricEnroll = offer, unlocked = !offer)
+                    }
                 }
                 is VaultState.Locked -> {
-                    _uiState.update {
-                        it.copy(isLoading = false, errorMessage = "Clave maestra incorrecta")
+                    if (fromBiometric) {
+                        // La contraseña maestra guardada ya no valida el checker:
+                        // cambió en otro dispositivo. Descartar el secreto biométrico.
+                        biometric.clear()
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                biometricEnrolled = false,
+                                masterPassword = "",
+                                errorMessage = "Tu contraseña maestra ha cambiado. Introdúcela de nuevo.",
+                            )
+                        }
+                    } else {
+                        _uiState.update {
+                            it.copy(isLoading = false, errorMessage = "Clave maestra incorrecta")
+                        }
                     }
                 }
                 is VaultState.Error -> {
@@ -131,6 +175,42 @@ class MasterKeyViewModel : ViewModel() {
                 }
             }
         }
+    }
+
+    /**
+     * La UI ha cifrado y guardado la contraseña maestra tras autenticar la huella.
+     * Marca la huella como activa y entra a la bóveda.
+     */
+    fun onBiometricEnrolled() {
+        _uiState.update {
+            it.copy(biometricEnrolled = true, offerBiometricEnroll = false, unlocked = true)
+        }
+    }
+
+    /** El usuario rechazó (o falló) activar la huella: entrar igualmente. */
+    fun skipBiometricEnroll() {
+        _uiState.update { it.copy(offerBiometricEnroll = false, unlocked = true) }
+    }
+
+    /**
+     * La clave biométrica quedó invalidada (p.ej. se registró una nueva huella).
+     * El secreto ya se borró; pedir la clave maestra manualmente.
+     */
+    fun onBiometricInvalidated() {
+        _uiState.update {
+            it.copy(
+                biometricEnrolled = false,
+                errorMessage = "La biometría cambió. Introduce tu clave maestra y vuelve a activarla.",
+            )
+        }
+    }
+
+    /** La contraseña maestra en claro que la UI necesita para enrolar la huella. */
+    fun masterPasswordForEnroll(): String = _uiState.value.masterPassword
+
+    private fun rememberMetadataVersion(vault: JsonObject) {
+        val mv = vault["metadataVersion"]?.jsonPrimitive?.intOrNull
+        if (mv != null) biometric.setKnownMetadataVersion(mv)
     }
 
     fun onCreateVaultClick() {
@@ -154,7 +234,11 @@ class MasterKeyViewModel : ViewModel() {
                 when (val result = remote.pushVault(json)) {
                     is VaultRemoteDataSource.Result.Success -> {
                         cachedVaultJson = json
-                        _uiState.update { it.copy(isLoading = false, unlocked = true) }
+                        rememberMetadataVersion(json)
+                        val offer = _uiState.value.biometricAvailable && !biometric.isEnabled()
+                        _uiState.update {
+                            it.copy(isLoading = false, offerBiometricEnroll = offer, unlocked = !offer)
+                        }
                     }
                     is VaultRemoteDataSource.Result.Error -> {
                         _uiState.update {
