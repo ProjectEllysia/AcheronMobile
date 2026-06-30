@@ -37,9 +37,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.fragment.app.FragmentActivity
+import com.seq.acheronmobile.data.security.BiometricMasterPasswordStore
+import com.seq.acheronmobile.di.VaultServiceLocator
+import com.seq.acheronmobile.ui.security.BiometricGate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -76,12 +82,42 @@ fun MasterKeyScreen(
     onLogout: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val activity = context as? FragmentActivity
+    val store = VaultServiceLocator.biometricStore
 
     LaunchedEffect(uiState.unlocked) {
         if (uiState.unlocked) {
             onVaultUnlocked()
             viewModel.onNavigatedToVault()
         }
+    }
+
+    // Informar a la VM de la disponibilidad de biometría (clase 3) en este dispositivo.
+    LaunchedEffect(Unit) {
+        viewModel.setBiometricAvailable(activity != null && BiometricGate.isAvailable(context))
+    }
+
+    // Auto-desbloqueo: si la huella está activa y hay bóveda, lanzar el prompt una vez.
+    var autoTried by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.vaultExists, uiState.biometricEnrolled, uiState.biometricAvailable) {
+        if (uiState.vaultExists == true && uiState.biometricEnrolled &&
+            uiState.biometricAvailable && activity != null && !autoTried
+        ) {
+            autoTried = true
+            launchBiometricUnlock(activity, store, viewModel)
+        }
+    }
+
+    // Diálogo para activar la huella tras un desbloqueo manual correcto.
+    if (uiState.offerBiometricEnroll) {
+        BiometricEnrollDialog(
+            onActivate = {
+                if (activity != null) launchBiometricEnroll(activity, store, viewModel)
+                else viewModel.skipBiometricEnroll()
+            },
+            onSkip = viewModel::skipBiometricEnroll,
+        )
     }
 
     AcheronAuthScaffold {
@@ -96,12 +132,100 @@ fun MasterKeyScreen(
                 exists == null ->
                     ProbeLoadingContent()
                 exists ->
-                    UnlockContent(viewModel, uiState, onLogout)
+                    UnlockContent(
+                        viewModel, uiState, onLogout,
+                        onUseBiometric = if (uiState.biometricEnrolled && uiState.biometricAvailable && activity != null) {
+                            { launchBiometricUnlock(activity, store, viewModel) }
+                        } else null,
+                    )
                 else ->
                     CreateVaultContent(viewModel, uiState, onLogout)
             }
         }
     }
+}
+
+/** Lanza el BiometricPrompt para descifrar la contraseña maestra y desbloquear. */
+private fun launchBiometricUnlock(
+    activity: FragmentActivity,
+    store: BiometricMasterPasswordStore,
+    viewModel: MasterKeyViewModel,
+) {
+    val cipher = store.decryptCipher()
+    if (cipher == null) {
+        // Clave invalidada (nueva huella registrada): pedir clave maestra manual.
+        viewModel.onBiometricInvalidated()
+        return
+    }
+    BiometricGate.authenticate(
+        activity = activity,
+        cipher = cipher,
+        title = "Desbloquear bóveda",
+        subtitle = "Usa tu huella para abrir Acheron",
+        negativeText = "Usar clave maestra",
+        onSuccess = { authenticated ->
+            try {
+                viewModel.onBiometricUnlock(store.finishUnlock(authenticated))
+            } catch (_: Exception) {
+                viewModel.onBiometricInvalidated()
+            }
+        },
+        onError = { _, _ -> /* cancelado: el usuario puede teclear la clave */ },
+    )
+}
+
+/** Lanza el BiometricPrompt para cifrar y guardar la contraseña maestra. */
+private fun launchBiometricEnroll(
+    activity: FragmentActivity,
+    store: BiometricMasterPasswordStore,
+    viewModel: MasterKeyViewModel,
+) {
+    val cipher = try {
+        store.encryptCipher()
+    } catch (_: Exception) {
+        viewModel.skipBiometricEnroll()
+        return
+    }
+    BiometricGate.authenticate(
+        activity = activity,
+        cipher = cipher,
+        title = "Activar huella",
+        subtitle = "Confirma tu huella para guardar la clave maestra de forma segura",
+        negativeText = "Cancelar",
+        onSuccess = { authenticated ->
+            try {
+                store.finishEnroll(authenticated, viewModel.masterPasswordForEnroll())
+                viewModel.onBiometricEnrolled()
+            } catch (_: Exception) {
+                viewModel.skipBiometricEnroll()
+            }
+        },
+        onError = { _, _ -> viewModel.skipBiometricEnroll() },
+    )
+}
+
+@Composable
+private fun BiometricEnrollDialog(onActivate: () -> Unit, onSkip: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onSkip,
+        icon = { Icon(Icons.Filled.Fingerprint, null, tint = MaterialTheme.colorScheme.primary) },
+        title = { Text("Activar desbloqueo con huella") },
+        text = {
+            Text(
+                "Guarda tu clave maestra de forma segura en este dispositivo y desbloquea " +
+                    "Acheron con tu huella la próxima vez. Si cambias la contraseña, te la " +
+                    "pediremos de nuevo."
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onActivate) {
+                Text("Activar", color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onSkip) { Text("Ahora no") }
+        },
+    )
 }
 
 // ── Comprobando ───────────────────────────────────────────────────────────────
@@ -167,7 +291,8 @@ private fun ProbeErrorContent(message: String, onRetry: () -> Unit) {
 private fun UnlockContent(
     viewModel: MasterKeyViewModel,
     uiState: MasterKeyUiState,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onUseBiometric: (() -> Unit)? = null,
 ) {
     val focusManager = LocalFocusManager.current
     var visible by remember { mutableStateOf(false) }
@@ -226,6 +351,15 @@ private fun UnlockContent(
                     loading = uiState.isLoading,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                if (onUseBiometric != null) {
+                    BrandSecondaryButton(
+                        text = "Usar huella",
+                        onClick = { focusManager.clearFocus(); onUseBiometric() },
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = Icons.Filled.Fingerprint,
+                    )
+                }
             }
         }
 
