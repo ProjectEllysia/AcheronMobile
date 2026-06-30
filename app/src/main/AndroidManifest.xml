@@ -4,6 +4,9 @@
     <!-- Permiso de red para llamar a la API SeQ -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Desbloqueo del vault con huella/biometría -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
