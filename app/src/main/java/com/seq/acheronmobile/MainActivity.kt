@@ -28,13 +28,18 @@ import com.seq.acheronmobile.ui.vault.VaultViewModel
 
 class MainActivity : FragmentActivity() {
 
+    // Instancias compartidas: LoginViewModel, MfaVerifyViewModel y
+    // MfaSettingsViewModel operan todas sobre la misma sesión, así que
+    // reutilizan el mismo TokenRepository/AuthRepository en vez de crear
+    // repositorios independientes por pantalla.
+    private val tokenRepository: TokenRepository by lazy { TokenRepository(applicationContext) }
+    private val authRepository: AuthRepository by lazy { AuthRepository(tokenRepository) }
+
     private val loginViewModel: LoginViewModel by lazy {
-        val tokenRepo = TokenRepository(applicationContext)
-        val authRepo  = AuthRepository(tokenRepo)
         ViewModelProvider(this, object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                LoginViewModel(authRepo, tokenRepo) as T
+                LoginViewModel(authRepository, tokenRepository) as T
         })[LoginViewModel::class.java]
     }
 
@@ -47,8 +52,7 @@ class MainActivity : FragmentActivity() {
         // antes de super.onCreate; sustituye al splash automatico del sistema.
         installSplashScreen()
         super.onCreate(savedInstanceState)
-        val tokenRepo = TokenRepository(applicationContext)
-        NetworkModule.initialize(tokenRepo)
+        NetworkModule.initialize(tokenRepository)
 
         // Init vault services (recreated on process death)
         VaultServiceLocator.cryptoService = VaultCryptoService()
@@ -56,7 +60,7 @@ class MainActivity : FragmentActivity() {
         VaultServiceLocator.biometricStore = BiometricMasterPasswordStore(applicationContext)
         // Restaura el username de la sesion activa: necesario para validar el
         // checker del vault si se arranca directamente en MASTER_KEY (ver #3).
-        VaultServiceLocator.username = tokenRepo.getUsername() ?: ""
+        VaultServiceLocator.username = tokenRepository.getUsername() ?: ""
 
         // La identidad de Acheron es siempre oscura, asi que fijamos iconos de
         // barra claros (estilo "dark") para que no queden invisibles aunque el
@@ -73,9 +77,11 @@ class MainActivity : FragmentActivity() {
                 ) {
                     val navController = rememberNavController()
                     AcheronNavGraph(
-                        navController  = navController,
-                        loginViewModel = loginViewModel,
-                        vaultViewModel = vaultViewModel
+                        navController   = navController,
+                        loginViewModel  = loginViewModel,
+                        vaultViewModel  = vaultViewModel,
+                        authRepository  = authRepository,
+                        tokenRepository = tokenRepository
                     )
                 }
             }
