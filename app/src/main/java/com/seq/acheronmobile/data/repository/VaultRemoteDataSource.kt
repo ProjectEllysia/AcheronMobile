@@ -7,6 +7,7 @@ import com.seq.acheronmobile.data.model.StorableDeleteRequest
 import com.seq.acheronmobile.data.model.StorableResponse
 import com.seq.acheronmobile.data.model.VaultUpsertResponse
 import com.seq.acheronmobile.data.network.NetworkModule
+import com.seq.acheronmobile.di.SessionEvents
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
@@ -120,12 +121,17 @@ class VaultRemoteDataSource(
             429 -> "Demasiadas peticiones"
             else -> "Error ${response.code()}"
         }
-        return try {
+        val parsed = try {
             val body = response.errorBody()?.string() ?: ""
             json.decodeFromString<com.seq.acheronmobile.data.model.ApiErrorResponse>(body)
-                .displayMessage() ?: fallback
         } catch (_: Exception) {
-            fallback
+            null
         }
+        // Si la contraseña de acceso cambió, señalar el fin de sesión global para
+        // que la UI lleve a login con el mensaje dedicado.
+        if (response.code() == 401 && parsed?.isPasswordChanged() == true) {
+            SessionEvents.signalEnd("password_changed")
+        }
+        return parsed?.displayMessage() ?: fallback
     }
 }

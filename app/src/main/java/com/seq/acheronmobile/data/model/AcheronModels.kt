@@ -84,7 +84,8 @@ data class MissingPermissions(
 
 @Serializable
 data class ApiErrorResponse(
-    val code: String? = null,
+    // El backend envía `code` como entero (ErrorCode), p.ej. 1609 = PASSWORD_CHANGED.
+    val code: Int? = null,
     val message: String? = null,
     val status: String? = null,
     val error: String? = null,
@@ -92,6 +93,13 @@ data class ApiErrorResponse(
     @SerialName("missing_permissions") val missingPermissions: MissingPermissions? = null,
     @SerialName("user_message") val userMessage: String? = null
 ) {
+    /**
+     * True si el error indica que la contraseña de acceso cambió. El decorador
+     * de auth devuelve `error == "password_changed"`; las excepciones del backend
+     * usan `code == 1609` (ErrorCode.PASSWORD_CHANGED).
+     */
+    fun isPasswordChanged(): Boolean = code == PASSWORD_CHANGED_CODE || error == "password_changed"
+
     fun displayMessage(): String? {
         val missingNames = (missingPermissions?.atLeastOne.orEmpty() + missingPermissions?.allRequired.orEmpty())
             .distinct()
@@ -103,5 +111,9 @@ data class ApiErrorResponse(
             }
         }
         return errorDescription ?: userMessage
+    }
+
+    companion object {
+        const val PASSWORD_CHANGED_CODE = 1609
     }
 }

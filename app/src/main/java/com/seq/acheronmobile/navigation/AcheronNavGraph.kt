@@ -1,6 +1,9 @@
 package com.seq.acheronmobile.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -8,6 +11,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.seq.acheronmobile.data.vault.StorableUi
+import com.seq.acheronmobile.di.SessionEvents
 import com.seq.acheronmobile.ui.login.LoginScreen
 import com.seq.acheronmobile.ui.login.LoginViewModel
 import com.seq.acheronmobile.ui.vault.MasterKeyScreen
@@ -39,6 +43,19 @@ fun AcheronNavGraph(
 
     val onLogout: () -> Unit = {
         loginViewModel.logout()
+        navController.navigate(Routes.LOGIN) {
+            popUpTo(0) { inclusive = true }
+        }
+    }
+
+    // Fin de sesión global (p.ej. la contraseña de acceso cambió en otro
+    // dispositivo): cerrar sesión y llevar a login con el mensaje adecuado.
+    val sessionEndReason by SessionEvents.endReason.collectAsStateWithLifecycle()
+    LaunchedEffect(sessionEndReason) {
+        val reason = sessionEndReason ?: return@LaunchedEffect
+        loginViewModel.logout()
+        loginViewModel.notifySessionEnded(reason)
+        SessionEvents.consume()
         navController.navigate(Routes.LOGIN) {
             popUpTo(0) { inclusive = true }
         }

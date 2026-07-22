@@ -84,14 +84,28 @@ class LoginViewModel(
     }
 
     /**
-     * Cierra la sesión de SeQ: revoca los tokens locales y bloquea la bóveda
-     * en memoria. A diferencia de "bloquear", esto obliga a iniciar sesión de
-     * nuevo (no solo a reintroducir la clave maestra).
+     * Cierra la sesión de SeQ: revoca los tokens locales, bloquea la bóveda en
+     * memoria y descarta el secreto biométrico. A diferencia de "bloquear", esto
+     * obliga a iniciar sesión de nuevo (no solo a reintroducir la clave maestra).
      */
     fun logout() {
         tokenRepository.clearTokens()
         VaultServiceLocator.cryptoService.lock()
+        VaultServiceLocator.biometricStore.clear()
         VaultServiceLocator.username = ""
         _uiState.value = LoginUiState()
+    }
+
+    /**
+     * Muestra un mensaje en el login cuando la sesión terminó por un motivo
+     * concreto (p.ej. la contraseña de acceso cambió en otro dispositivo).
+     * Debe llamarse DESPUÉS de [logout] para que el mensaje no se borre.
+     */
+    fun notifySessionEnded(reason: String) {
+        val msg = when (reason) {
+            "password_changed" -> "Tu contraseña ha cambiado. Inicia sesión de nuevo."
+            else -> "Tu sesión ha expirado. Inicia sesión de nuevo."
+        }
+        _uiState.update { it.copy(errorMessage = msg) }
     }
 }

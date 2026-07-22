@@ -74,6 +74,9 @@ dependencies {
     // Jetpack Security — EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
+    // Biometría — desbloqueo del vault con huella (BiometricPrompt + FragmentActivity)
+    implementation(libs.androidx.biometric)
+
     // SplashScreen API (retrocompatible) — pantalla de inicio de marca
     implementation("androidx.core:core-splashscreen:1.0.1")
 

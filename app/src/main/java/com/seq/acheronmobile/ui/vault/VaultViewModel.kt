@@ -236,6 +236,9 @@ class VaultViewModel : ViewModel() {
         return when (val result = remote.changeVaultPassword(metadata)) {
             is VaultRemoteDataSource.Result.Success -> {
                 _uiState.update { it.copy(syncing = false) }
+                // El secreto biométrico guardaba la contraseña antigua: descartarlo
+                // para que se vuelva a enrolar al desbloquear con la nueva.
+                VaultServiceLocator.biometricStore.clear()
                 crypto.lock() // re-desbloqueo con la nueva contraseña
                 true
             }
