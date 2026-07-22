@@ -16,7 +16,10 @@ data class LoginUiState(
     val password: String      = "",
     val isLoading: Boolean    = false,
     val errorMessage: String? = null,
-    val loginSuccess: Boolean = false
+    val loginSuccess: Boolean = false,
+    // Presente cuando la cuenta tiene MFA activo: la pantalla debe navegar al
+    // segundo paso (verificación TOTP) llevando este challengeToken consigo.
+    val mfaChallengeToken: String? = null
 )
 
 class LoginViewModel(
@@ -54,6 +57,11 @@ class LoginViewModel(
                     tokenRepository.saveUsername(state.username)
                     _uiState.update { it.copy(isLoading = false, loginSuccess = true) }
                 }
+                is AuthRepository.AuthResult.MfaRequired -> {
+                    _uiState.update {
+                        it.copy(isLoading = false, mfaChallengeToken = result.challengeToken)
+                    }
+                }
                 is AuthRepository.AuthResult.Error -> {
                     _uiState.update {
                         it.copy(isLoading = false, errorMessage = result.message)
@@ -81,6 +89,11 @@ class LoginViewModel(
 
     fun onNavigatedToVault() {
         _uiState.update { it.copy(loginSuccess = false) }
+    }
+
+    /** Se llama tras navegar a la pantalla de verificación MFA, para no re-disparar la navegación. */
+    fun onNavigatedToMfaVerify() {
+        _uiState.update { it.copy(mfaChallengeToken = null) }
     }
 
     /**

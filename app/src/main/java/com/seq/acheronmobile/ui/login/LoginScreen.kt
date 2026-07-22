@@ -44,7 +44,8 @@ import com.seq.acheronmobile.ui.theme.SectionLabel
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    onMfaRequired: (challengeToken: String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
@@ -54,6 +55,13 @@ fun LoginScreen(
         if (uiState.loginSuccess) {
             onLoginSuccess()
             viewModel.onNavigatedToVault()
+        }
+    }
+
+    LaunchedEffect(uiState.mfaChallengeToken) {
+        uiState.mfaChallengeToken?.let { token ->
+            onMfaRequired(token)
+            viewModel.onNavigatedToMfaVerify()
         }
     }
 
