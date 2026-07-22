@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
@@ -73,6 +74,7 @@ fun VaultListScreen(
     viewModel: VaultViewModel = viewModel(),
     onAdd: (kind: String) -> Unit,
     onStorableClick: (StorableUi) -> Unit,
+    onOpenAccountSettings: () -> Unit,
     onLock: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -158,6 +160,7 @@ fun VaultListScreen(
                 syncing = uiState.syncing,
                 onSync = { viewModel.syncToRemote() },
                 onChangePassword = { showChangePasswordDialog = true },
+                onOpenAccountSettings = onOpenAccountSettings,
                 onLock = { showLockDialog = true },
                 onLogout = { showLogoutDialog = true }
             )
@@ -210,6 +213,7 @@ private fun VaultHeader(
     syncing: Boolean,
     onSync: () -> Unit,
     onChangePassword: () -> Unit,
+    onOpenAccountSettings: () -> Unit,
     onLock: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -237,6 +241,17 @@ private fun VaultHeader(
                 letterSpacing = 1.sp
             )
         }
+        // Acceso a "Cuenta / Ajustes Ellysia" (perfil, MFA…): deliberadamente
+        // separado — con un divisor propio — de las acciones del Vault que le
+        // siguen, porque no es una acción sobre la bóveda sino sobre la cuenta.
+        HeaderAction(icon = Icons.Filled.ManageAccounts, desc = "Cuenta y ajustes", onClick = onOpenAccountSettings)
+        Box(
+            Modifier
+                .padding(horizontal = BrandSpace.sm)
+                .width(1.dp)
+                .height(24.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant)
+        )
         HeaderAction(icon = Icons.Filled.Sync, desc = "Sincronizar", loading = syncing, onClick = onSync)
         Spacer(Modifier.width(BrandSpace.sm))
         HeaderAction(icon = Icons.Filled.Password, desc = "Cambiar contraseña", onClick = onChangePassword)

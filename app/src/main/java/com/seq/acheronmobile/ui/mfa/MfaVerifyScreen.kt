@@ -1,4 +1,4 @@
-package com.seq.acheronmobile.ui.login
+package com.seq.acheronmobile.ui.mfa
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -10,28 +10,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.seq.acheronmobile.ui.theme.AcheronAuthScaffold
 import com.seq.acheronmobile.ui.theme.AcheronLockup
@@ -41,85 +31,55 @@ import com.seq.acheronmobile.ui.theme.BrandPrimaryButton
 import com.seq.acheronmobile.ui.theme.BrandSpace
 import com.seq.acheronmobile.ui.theme.SectionLabel
 
+/**
+ * Segundo paso del login: verificación en dos pasos (TOTP o código de
+ * recuperación). Se navega aquí desde LoginScreen cuando la cuenta tiene
+ * MFA activo; nunca se accede directamente.
+ */
 @Composable
-fun LoginScreen(
-    viewModel: LoginViewModel,
-    onLoginSuccess: () -> Unit,
-    onMfaRequired: (challengeToken: String) -> Unit = {}
+fun MfaVerifyScreen(
+    viewModel: MfaVerifyViewModel,
+    onVerified: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
-    var passwordVisible by remember { mutableStateOf(false) }
 
-    LaunchedEffect(uiState.loginSuccess) {
-        if (uiState.loginSuccess) {
-            onLoginSuccess()
+    LaunchedEffect(uiState.verifySuccess) {
+        if (uiState.verifySuccess) {
+            onVerified()
             viewModel.onNavigatedToVault()
         }
     }
 
-    LaunchedEffect(uiState.mfaChallengeToken) {
-        uiState.mfaChallengeToken?.let { token ->
-            onMfaRequired(token)
-            viewModel.onNavigatedToMfaVerify()
-        }
-    }
-
     AcheronAuthScaffold {
-        AcheronLockup(subtitle = "El guardián de tus secretos en la travesía.")
+        AcheronLockup(subtitle = "Un paso más para entrar a tu bóveda.")
 
         BrandPanel(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(BrandSpace.lg),
                 verticalArrangement = Arrangement.spacedBy(BrandSpace.md)
             ) {
-                SectionLabel("Acceso al sistema")
+                SectionLabel("Verificación en dos pasos")
                 Text(
-                    "Inicia sesión",
+                    if (uiState.useRecovery) "Código de recuperación" else "Código de tu app de autenticación",
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onBackground
                 )
 
                 BrandField(
-                    value = uiState.username,
-                    onValueChange = viewModel::onUsernameChange,
-                    label = "Usuario",
-                    leadingIcon = Icons.Filled.Person,
+                    value = uiState.code,
+                    onValueChange = viewModel::onCodeChange,
+                    label = if (uiState.useRecovery) "Código de recuperación" else "Código de 6 dígitos",
+                    leadingIcon = Icons.Filled.Shield,
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Text, imeAction = ImeAction.Next
+                        keyboardType = if (uiState.useRecovery) KeyboardType.Text else KeyboardType.NumberPassword,
+                        imeAction = ImeAction.Done
                     ),
                     keyboardActions = KeyboardActions(
-                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                        onDone = { focusManager.clearFocus(); viewModel.onVerifyClick() }
                     ),
                     isError = uiState.errorMessage != null,
                     enabled = !uiState.isLoading
-                )
-
-                BrandField(
-                    value = uiState.password,
-                    onValueChange = viewModel::onPasswordChange,
-                    label = "Contraseña",
-                    leadingIcon = Icons.Filled.Lock,
-                    visualTransformation = if (passwordVisible)
-                        VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password, imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = { focusManager.clearFocus(); viewModel.onLoginClick() }
-                    ),
-                    isError = uiState.errorMessage != null,
-                    enabled = !uiState.isLoading,
-                    trailing = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible)
-                                    Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                                contentDescription = if (passwordVisible)
-                                    "Ocultar contraseña" else "Mostrar contraseña"
-                            )
-                        }
-                    }
                 )
 
                 AnimatedVisibility(
@@ -137,12 +97,23 @@ fun LoginScreen(
                 }
 
                 BrandPrimaryButton(
-                    text = "Iniciar sesión",
-                    onClick = { focusManager.clearFocus(); viewModel.onLoginClick() },
+                    text = "Verificar",
+                    onClick = { focusManager.clearFocus(); viewModel.onVerifyClick() },
                     enabled = !uiState.isLoading,
                     loading = uiState.isLoading,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                TextButton(
+                    onClick = { focusManager.clearFocus(); viewModel.onToggleRecovery() },
+                    enabled = !uiState.isLoading,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        if (uiState.useRecovery) "Usar código de la app en su lugar" else "Usar un código de recuperación",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
             }
         }
 
