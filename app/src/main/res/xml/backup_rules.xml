@@ -1,13 +1,14 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Reglas de Auto Backup para dispositivos API < 31 (ver S3 en docs/code-review.md).
+
+   Los EncryptedSharedPreferences (tokens de sesión y secreto biométrico) se
+   descifran con una clave del Android Keystore que NUNCA sale del
+   dispositivo. Si se incluyeran en la copia de seguridad, al restaurar en
+   otro dispositivo (o tras un reset) quedarían como bytes ilegibles: la app
+   arrancaría con preferencias corruptas.
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <exclude domain="sharedpref" path="acheron_secure_prefs.xml" />
+    <exclude domain="sharedpref" path="acheron_biometric_prefs.xml" />
 </full-backup-content>
