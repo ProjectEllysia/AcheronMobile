@@ -15,10 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 data class VaultUiState(
@@ -58,35 +55,88 @@ class VaultViewModel : ViewModel() {
         }
     }
 
-    fun syncToRemote() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(syncing = true, errorMessage = null) }
-            try {
-                val vaultJson = crypto.exportEncryptedJson()
-                val json = Json.parseToJsonElement(vaultJson).jsonObject
-                when (val result = remote.pushVault(json)) {
-                    is ApiResult.Success -> {
-                        _uiState.update { it.copy(syncing = false) }
+    /**
+     * Recarga la bóveda desde el servidor y reemplaza el estado local.
+     *
+     * Sustituye al antiguo `syncToRemote()`, que empujaba el vault local entero
+     * contra `POST /acheron/vault` —un DELETE+reinsert de todos los storables en
+     * el backend— y así borraba en silencio lo que se hubiera editado desde otro
+     * cliente. Ese push no tenía caso de uso legítimo: cada alta/edición/baja ya
+     * se envía de forma granular en el momento en que ocurre, así que nunca hay
+     * estado local pendiente de subir. Lo que falta en el flujo es lo contrario:
+     * traerse lo que escribieron los demás.
+     *
+     * No pide la contraseña maestra: la sesión abierta ya puede descifrar.
+     */
+    fun refreshFromRemote() {
+        viewModelScope.launch { reloadFromRemote() }
+    }
+
+    /**
+     * Trae el vault del servidor y lo vuelve a abrir en caliente.
+     *
+     * @return `true` si el estado local quedó sincronizado con el servidor.
+     */
+    private suspend fun reloadFromRemote(): Boolean {
+        _uiState.update { it.copy(syncing = true, errorMessage = null) }
+        return when (val result = remote.fetchVault()) {
+            is ApiResult.Success -> {
+                val state = crypto.reloadFromJson(
+                    VaultServiceLocator.username, result.data.toString()
+                )
+                if (state is VaultState.Unlocked) {
+                    _uiState.update { it.copy(syncing = false) }
+                    true
+                } else {
+                    // La contraseña maestra ya no abre este vault: se rotó desde
+                    // otro dispositivo. El collector de crypto.state marcará
+                    // `locked` y la UI llevará al desbloqueo.
+                    _uiState.update {
+                        it.copy(
+                            syncing = false,
+                            errorMessage = "Tu contraseña maestra cambió en otro dispositivo. " +
+                                "Vuelve a desbloquear la bóveda.",
+                        )
                     }
-                    is ApiResult.Error -> {
-                        _uiState.update {
-                            it.copy(syncing = false, errorMessage = result.message)
-                        }
-                    }
-                    is ApiResult.NetworkError -> {
-                        _uiState.update {
-                            it.copy(syncing = false,
-                                errorMessage = "Sin conexión")
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(syncing = false,
-                        errorMessage = e.localizedMessage ?: "Error")
+                    false
                 }
             }
+            is ApiResult.Error -> {
+                _uiState.update { it.copy(syncing = false, errorMessage = result.message) }
+                false
+            }
+            is ApiResult.NetworkError -> {
+                _uiState.update { it.copy(syncing = false, errorMessage = "Sin conexión") }
+                false
+            }
         }
+    }
+
+    /**
+     * Ejecuta una escritura y, si el servidor la rechaza con 409, recarga el
+     * vault y la reintenta UNA vez sobre el estado fresco.
+     *
+     * El reintento reenvía el MISMO cuerpo cifrado: la `vaultKey` no cambia con
+     * lo que escriban otros clientes, así que el ciphertext sigue siendo válido.
+     * Al terminar se vuelve a recargar, porque la recarga intermedia deshizo el
+     * cambio en el vault en memoria (que sí se aplica localmente antes de
+     * enviarlo) y esta segunda lectura deja local y servidor diciendo lo mismo,
+     * incluido lo que escribió el otro dispositivo.
+     *
+     * Se reintenta ante cualquier 409 sin mirar el motivo: en `DELETE` y `PATCH`
+     * el único 409 posible es la revisión obsoleta, y en `POST` el otro caso
+     * —internalId duplicado— exigiría una colisión de SHA-256 sobre ciphertext
+     * con IV aleatorio. Si de todos modos ocurriera, el reintento vuelve a
+     * fallar y el error llega al usuario igual.
+     */
+    private suspend fun <T> withRevisionRetry(block: suspend () -> ApiResult<T>): ApiResult<T> {
+        val first = block()
+        if (first !is ApiResult.Error || first.code != 409) return first
+        if (!reloadFromRemote()) return first
+
+        val retry = block()
+        if (retry is ApiResult.Success) reloadFromRemote()
+        return retry
     }
 
     /**
@@ -118,7 +168,7 @@ class VaultViewModel : ViewModel() {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         return try {
             val request = crypto.addStorable(kind, title, fields)
-            pushStorableResult(remote.addStorable(request))
+            pushStorableResult(withRevisionRetry { remote.addStorable(request) })
         } catch (e: Exception) {
             _uiState.update {
                 it.copy(isLoading = false, errorMessage = e.localizedMessage ?: "Error")
@@ -136,7 +186,7 @@ class VaultViewModel : ViewModel() {
                 }
                 return false
             }
-            pushStorableResult(remote.deleteStorable(internalId))
+            pushStorableResult(withRevisionRetry { remote.deleteStorable(internalId) })
         } catch (e: Exception) {
             _uiState.update {
                 it.copy(isLoading = false, errorMessage = e.localizedMessage ?: "Error")
@@ -152,8 +202,7 @@ class VaultViewModel : ViewModel() {
     suspend fun updateStorable(id: String, title: String?, fields: Map<String, String?>): Boolean {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         return try {
-            val changes = crypto.updateStorable(id, title, fields)
-            pushStorableUpdate(id, changes)
+            pushStorableUpdate(id, crypto.updateStorable(id, title, fields))
         } catch (e: Exception) {
             _uiState.update {
                 it.copy(isLoading = false, errorMessage = e.localizedMessage ?: "Error")
@@ -178,7 +227,10 @@ class VaultViewModel : ViewModel() {
             _uiState.update { it.copy(isLoading = false) }
             return true
         }
-        return when (val result = remote.bulkUpdate(listOf(BulkUpdateRequest(id, changes)))) {
+        val result = withRevisionRetry {
+            remote.bulkUpdate(listOf(BulkUpdateRequest(id, changes)))
+        }
+        return when (result) {
             is ApiResult.Success -> {
                 val status = result.data.results.firstOrNull()
                     ?.get("status")?.jsonPrimitive?.contentOrNull
@@ -259,6 +311,7 @@ class VaultViewModel : ViewModel() {
 
     fun lockVault() {
         crypto.lock()
+        remote.forgetRevision()
     }
 
     fun clearError() {

@@ -52,6 +52,15 @@ class VaultCryptoService {
     private val _state = MutableStateFlow<VaultState>(VaultState.Locked)
     val state: StateFlow<VaultState> = _state.asStateFlow()
 
+    // Contraseña maestra de la sesión abierta. Se conserva SOLO mientras el vault
+    // está desbloqueado, para poder recargar desde el servidor sin volver a
+    // pedírsela al usuario: el core reconstruye el vault desde el JSON con
+    // VaultFactory.fromJson(json, password), y no expone una variante que reutilice
+    // la estrategia ya derivada. No supone una exposición nueva: la app ya custodia
+    // la contraseña maestra en el Keystore para el desbloqueo por huella
+    // (ver BiometricMasterPasswordStore), y aquí se descarta en lock().
+    private var sessionPassword: String? = null
+
     private fun user(userId: String): User = User(userId, "", "", "", userId)
 
     /**
@@ -62,9 +71,38 @@ class VaultCryptoService {
      * docs/code-review.md).
      */
     fun unlockFromJson(userId: String, vaultJson: String, password: String): VaultState {
+        val newState = openFromJson(userId, vaultJson, password)
+        if (newState is VaultState.Unlocked) {
+            sessionPassword = password
+        }
+        _state.value = newState
+        return newState
+    }
+
+    /**
+     * Recarga el vault desde un JSON fresco del servidor **sin volver a pedir la
+     * contraseña maestra**, reutilizando la de la sesión abierta. Sustituye por
+     * completo el estado local: es lo que hace el botón "Recargar" y lo que se
+     * ejecuta tras un 409 por revisión obsoleta antes de reintentar.
+     *
+     * Devuelve [VaultState.Locked] si no hay sesión que reutilizar o si la
+     * contraseña ya no valida el checker (la maestra se rotó en otro
+     * dispositivo): en ambos casos toca re-desbloquear a mano.
+     */
+    fun reloadFromJson(userId: String, vaultJson: String): VaultState {
+        val password = sessionPassword ?: return VaultState.Locked
+        val newState = openFromJson(userId, vaultJson, password)
+        if (newState !is VaultState.Unlocked) {
+            sessionPassword = null
+        }
+        _state.value = newState
+        return newState
+    }
+
+    private fun openFromJson(userId: String, vaultJson: String, password: String): VaultState {
         val factory = VaultFactory(user(userId))
         vaultFactory = factory
-        val newState = try {
+        return try {
             val v = factory.fromJson(vaultJson, password)
             v.decryptAll()
             vault = v
@@ -76,8 +114,6 @@ class VaultCryptoService {
         } catch (e: Exception) {
             VaultState.Error(e.localizedMessage ?: "Unknown error")
         }
-        _state.value = newState
-        return newState
     }
 
     fun createVault(userId: String, password: String): String {
@@ -90,6 +126,9 @@ class VaultCryptoService {
             val strategy = VaultEncryptingStrategyFactory.create(password, salt)
             val v = Vault(strategy, u, false)
             this.vault = v
+            // La bóveda queda abierta al crearla: sin esto, una recarga justo
+            // después de crearla no tendría contraseña que reutilizar.
+            sessionPassword = password
             _state.value = VaultState.Unlocked(emptyList())
             v.encryptAll()
             val json = v.toJson()
@@ -128,6 +167,10 @@ class VaultCryptoService {
     fun changeMasterPassword(oldPassword: String, newPassword: String): JsonObject {
         val v = vault ?: throw IllegalStateException("Vault not open")
         v.changePassword(oldPassword, newPassword)
+        // La sesión sigue abierta con la contraseña nueva: si no se actualiza,
+        // una recarga posterior intentaría reabrir con la vieja. (El llamante
+        // bloquea después, pero no depender de ese orden es gratis.)
+        sessionPassword = newPassword
         val root = Json.parseToJsonElement(exportEncryptedJson()).jsonObject
         // La clave maestra ya se rotó en el vault en memoria (línea de
         // arriba) en el momento en que se llega aquí: si el core cambiara de
@@ -342,6 +385,7 @@ class VaultCryptoService {
     fun lock() {
         vault = null
         vaultFactory = null
+        sessionPassword = null
         _state.value = VaultState.Locked
     }
 

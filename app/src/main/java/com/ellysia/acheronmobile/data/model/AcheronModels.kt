@@ -6,7 +6,11 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class VaultUpsertResponse(
     val message: String,
-    val vaultId: Int
+    val vaultId: Int,
+    // Revisión resultante del vault. El backend la devuelve en toda escritura
+    // para que el cliente pueda mandarla en el `If-Match` de la siguiente sin
+    // volver a descargar la bóveda entera.
+    val revision: Int? = null
 )
 
 @Serializable
@@ -61,7 +65,8 @@ data class StorableResponse(
     val storableId: Int,
     val internalId: String,
     val vaultId: Int,
-    val kind: String
+    val kind: String,
+    val revision: Int? = null
 )
 
 @Serializable
@@ -73,7 +78,8 @@ data class BulkUpdateRequest(
 @Serializable
 data class BulkUpdateResponse(
     val message: String,
-    val results: List<kotlinx.serialization.json.JsonObject>
+    val results: List<kotlinx.serialization.json.JsonObject>,
+    val revision: Int? = null
 )
 
 @Serializable

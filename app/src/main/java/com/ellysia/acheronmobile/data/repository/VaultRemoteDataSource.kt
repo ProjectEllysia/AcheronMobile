@@ -13,6 +13,8 @@ import com.ellysia.acheronmobile.data.network.apiCall
 import com.ellysia.acheronmobile.di.SessionEvents
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import retrofit2.Response
 
 class VaultRemoteDataSource(
@@ -20,21 +22,51 @@ class VaultRemoteDataSource(
 ) {
     private val api = NetworkModule.apiService
 
-    suspend fun fetchVault(): ApiResult<JsonObject> = call { api.getVault() }
+    /**
+     * Revisión del vault que el servidor nos dio por última vez. Viaja en
+     * `If-Match` en toda escritura: si otro cliente (p. ej. la web) escribió
+     * mientras tanto, el backend responde 409 en vez de dejarnos pisar su
+     * cambio.
+     *
+     * Vive aquí, y no en el ViewModel, porque este es el único punto que a la
+     * vez la lee de cada respuesta y la manda: así una llamada nueva no puede
+     * olvidarse de ella. `@Volatile` porque se toca desde varias corrutinas.
+     */
+    @Volatile
+    private var revision: Int? = null
 
-    suspend fun pushVault(vault: JsonObject): ApiResult<VaultUpsertResponse> = call { api.upsertVault(vault) }
+    private fun ifMatch(): String? = revision?.let { "\"$it\"" }
+
+    suspend fun fetchVault(): ApiResult<JsonObject> =
+        call { api.getVault() }.also { result ->
+            if (result is ApiResult.Success) {
+                revision = result.data["revision"]?.jsonPrimitive?.intOrNull ?: revision
+            }
+        }
+
+    suspend fun pushVault(vault: JsonObject): ApiResult<VaultUpsertResponse> =
+        call { api.upsertVault(vault) }.track { it.revision }
 
     suspend fun changeVaultPassword(metadata: JsonObject): ApiResult<VaultUpsertResponse> =
-        call { api.changeVaultPassword(metadata) }
+        call { api.changeVaultPassword(metadata, ifMatch()) }.track { it.revision }
 
     suspend fun addStorable(request: StorableCreateRequest): ApiResult<StorableResponse> =
-        call { api.addStorable(request) }
+        call { api.addStorable(request, ifMatch()) }.track { it.revision }
 
     suspend fun deleteStorable(internalId: String): ApiResult<StorableResponse> =
-        call { api.deleteStorable(StorableDeleteRequest(internalId)) }
+        call { api.deleteStorable(StorableDeleteRequest(internalId), ifMatch()) }.track { it.revision }
 
     suspend fun bulkUpdate(requests: List<BulkUpdateRequest>): ApiResult<BulkUpdateResponse> =
-        call { api.bulkUpdateStorables(requests) }
+        call { api.bulkUpdateStorables(requests, ifMatch()) }.track { it.revision }
+
+    /** Olvida la revisión conocida (al bloquear la bóveda o cerrar sesión). */
+    fun forgetRevision() {
+        revision = null
+    }
+
+    private fun <T> ApiResult<T>.track(extract: (T) -> Int?): ApiResult<T> = also {
+        if (it is ApiResult.Success) extract(it.data)?.let { fresh -> revision = fresh }
+    }
 
     private suspend fun <T> call(block: suspend () -> Response<T>): ApiResult<T> =
         apiCall(errorMessage = ::errorMessage, block = block)
@@ -44,7 +76,10 @@ class VaultRemoteDataSource(
             401 -> "Sesion expirada"
             403 -> "No tienes permisos para realizar esta accion"
             404 -> "No encontrado"
-            409 -> "Ya existe"
+            // Dos 409 posibles: internalId duplicado, o revisión obsoleta. El
+            // cuerpo del backend lo aclara; esto es solo el respaldo si no se
+            // puede parsear.
+            409 -> "Conflicto con el estado del servidor"
             429 -> "Demasiadas peticiones"
             else -> "Error ${response.code()}"
         }

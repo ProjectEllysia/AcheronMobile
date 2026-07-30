@@ -21,6 +21,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 
@@ -71,25 +72,32 @@ interface EllysiaApiService {
         @Body body: JsonObject
     ): Response<VaultUpsertResponse>
 
+    // `ifMatch` lleva la revisión que el cliente cree tener. Retrofit omite la
+    // cabecera si el valor es null, así que una escritura sin revisión conocida
+    // sigue funcionando (el backend solo la exige en el reemplazo completo).
     @PATCH("acheron/vault")
     suspend fun changeVaultPassword(
-        @Body body: JsonObject
+        @Body body: JsonObject,
+        @Header("If-Match") ifMatch: String? = null
     ): Response<VaultUpsertResponse>
 
     // ── Acheron Storables ──────────────────────────────────────────────
 
     @POST("acheron/storables")
     suspend fun addStorable(
-        @Body body: StorableCreateRequest
+        @Body body: StorableCreateRequest,
+        @Header("If-Match") ifMatch: String? = null
     ): Response<StorableResponse>
 
     @DELETE("acheron/storables")
     suspend fun deleteStorable(
-        @Body body: StorableDeleteRequest
+        @Body body: StorableDeleteRequest,
+        @Header("If-Match") ifMatch: String? = null
     ): Response<StorableResponse>
 
     @PATCH("acheron/storables")
     suspend fun bulkUpdateStorables(
-        @Body body: List<BulkUpdateRequest>
+        @Body body: List<BulkUpdateRequest>,
+        @Header("If-Match") ifMatch: String? = null
     ): Response<BulkUpdateResponse>
 }

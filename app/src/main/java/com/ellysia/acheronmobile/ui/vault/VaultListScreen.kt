@@ -35,7 +35,7 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
@@ -167,7 +167,7 @@ fun VaultListScreen(
         topBar = {
             VaultHeader(
                 syncing = uiState.syncing,
-                onSync = { viewModel.syncToRemote() },
+                onRefresh = { viewModel.refreshFromRemote() },
                 onChangePassword = { showChangePasswordDialog = true },
                 onOpenAccountSettings = onOpenAccountSettings,
                 onLock = { showLockDialog = true },
@@ -232,7 +232,7 @@ fun VaultListScreen(
 @Composable
 private fun VaultHeader(
     syncing: Boolean,
-    onSync: () -> Unit,
+    onRefresh: () -> Unit,
     onChangePassword: () -> Unit,
     onOpenAccountSettings: () -> Unit,
     onLock: () -> Unit,
@@ -273,7 +273,7 @@ private fun VaultHeader(
                 .height(24.dp)
                 .background(MaterialTheme.colorScheme.outlineVariant)
         )
-        HeaderAction(icon = Icons.Filled.Sync, desc = "Sincronizar", loading = syncing, onClick = onSync)
+        HeaderAction(icon = Icons.Filled.Refresh, desc = "Recargar", loading = syncing, onClick = onRefresh)
         Spacer(Modifier.width(BrandSpace.sm))
         HeaderAction(icon = Icons.Filled.Password, desc = "Cambiar contraseña", onClick = onChangePassword)
         Spacer(Modifier.width(BrandSpace.sm))
@@ -411,7 +411,7 @@ private fun VaultStatusStrip(count: Int, syncing: Boolean) {
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                if (syncing) "Sincronizando…" else "Cifrada de extremo a extremo",
+                if (syncing) "Recargando…" else "Cifrada de extremo a extremo",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
