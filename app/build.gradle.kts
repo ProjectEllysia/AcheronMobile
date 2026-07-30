@@ -18,7 +18,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // URL base de la API — cámbiala por la de tu servidor
-        buildConfigField("String", "ELLYSIA_BASE_URL", "\"http://192.168.1.131:5000/\"")
+        buildConfigField("String", "ELLYSIA_BASE_URL", "\"http://192.168.1.129:5000/\"")
     }
 
     buildTypes {
