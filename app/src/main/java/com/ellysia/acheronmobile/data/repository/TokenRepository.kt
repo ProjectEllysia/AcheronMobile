@@ -102,12 +102,21 @@ class TokenRepository(context: Context) {
             }
             if (response.isSuccessful) {
                 val body = response.body()!!
+                // accessToken/expiresIn son nullable en TokenResponse por el flujo de MFA
+                // (ver AuthRepository.onTokenResponse); un refresh nunca deberia devolverlos
+                // vacios, pero si ocurre tratamos el refresh como fallido en vez de crashear.
+                val accessToken = body.accessToken
+                val expiresIn = body.expiresIn
+                if (accessToken == null || expiresIn == null) {
+                    clearTokens()
+                    return null
+                }
                 saveTokens(
-                    accessToken = body.accessToken,
+                    accessToken = accessToken,
                     refreshToken = body.refreshToken ?: currentRefresh, // conservar el refresh si la API no devuelve uno nuevo
-                    expiresIn = body.expiresIn
+                    expiresIn = expiresIn
                 )
-                body.accessToken
+                accessToken
             } else {
                 // Si el refresh falló porque la contraseña de acceso cambió,
                 // señalar el motivo para que la UI muestre la pantalla dedicada.
