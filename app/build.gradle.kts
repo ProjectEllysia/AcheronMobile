@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.seq.acheronmobile"
+    namespace = "com.ellysia.acheronmobile"
     compileSdk { version = release(36) }
 
     defaultConfig {
-        applicationId = "com.seq.acheronmobile"
+        applicationId = "com.ellysia.acheronmobile"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -18,7 +18,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // URL base de la API — cámbiala por la de tu servidor
-        buildConfigField("String", "SEQ_BASE_URL", "\"http://192.168.1.131:5000/\"")
+        buildConfigField("String", "ELLYSIA_BASE_URL", "\"http://192.168.1.131:5000/\"")
     }
 
     buildTypes {
