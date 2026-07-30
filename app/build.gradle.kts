@@ -80,8 +80,8 @@ dependencies {
     // SplashScreen API (retrocompatible) — pantalla de inicio de marca
     implementation("androidx.core:core-splashscreen:1.0.1")
 
-    // AcheronCore — vault engine
-    implementation(project(":AcheronCore"))
+    // AcheronCore — vault engine (ProjectEllysia/AcheronCore)
+    implementation("com.ellysia:acheron-core:1.0.0")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
