@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.seq.acheronmobile"
+    namespace = "com.ellysia.acheronmobile"
     compileSdk { version = release(36) }
 
     defaultConfig {
-        applicationId = "com.seq.acheronmobile"
+        applicationId = "com.ellysia.acheronmobile"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -18,7 +18,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // URL base de la API — cámbiala por la de tu servidor
-        buildConfigField("String", "SEQ_BASE_URL", "\"http://192.168.1.131:5000/\"")
+        buildConfigField("String", "ELLYSIA_BASE_URL", "\"http://192.168.1.129:5000/\"")
     }
 
     buildTypes {
@@ -74,11 +74,14 @@ dependencies {
     // Jetpack Security — EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
+    // Biometría — desbloqueo del vault con huella (BiometricPrompt + FragmentActivity)
+    implementation(libs.androidx.biometric)
+
     // SplashScreen API (retrocompatible) — pantalla de inicio de marca
     implementation("androidx.core:core-splashscreen:1.0.1")
 
-    // AcheronCore — vault engine
-    implementation(project(":AcheronCore"))
+    // AcheronCore — vault engine (ProjectEllysia/AcheronCore)
+    implementation("com.ellysia:acheron-core:1.0.0")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")

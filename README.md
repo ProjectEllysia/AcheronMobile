@@ -1,9 +1,9 @@
 <!-- prettier-ignore -->
 <div align="center">
 
-<img src="./resources/images/acheron/SeQ-Acheron-Gold-BgW.png" alt="Acheron" height="110" />
+<img src="./resources/images/acheron/Ellysia-Acheron-Gold-BgW.png" alt="Acheron" height="110" />
 
-# SeQ — Acheron — Mobile Vault
+# Ellysia — Acheron — Mobile Vault
 
 [![Kotlin 2.2](https://img.shields.io/badge/Kotlin-2.2-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack-Compose-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
@@ -19,7 +19,7 @@
 
 ## Overview
 
-Acheron is the Android client of the **SeQ** suite: an encrypted vault for credentials, cards, identities, notes, and other sensitive data. It guards secrets locally with Argon2id-derived keys while syncing them against a SeQ backend.
+Acheron is the Android client of the **Ellysia** suite: an encrypted vault for credentials, cards, identities, notes, and other sensitive data. It guards secrets locally with Argon2id-derived keys while syncing them against an Ellysia backend.
 
 > [!NOTE]
 > The UI and in-app strings are written in Spanish. This README is in English for contributor accessibility.
@@ -29,7 +29,7 @@ Acheron is the Android client of the **SeQ** suite: an encrypted vault for crede
 - **Master password vault** — unlock with a single master password; change it at any time with full key and salt rotation (Argon2id).
 - **Seven storable types** — Account, Credit Card, Secure Note, Identity, Bank Account, Wifi Network, and Software License, each with dedicated forms, icons, and field-level secret masking.
 - **Strong cryptography** — Argon2id key derivation and AES encryption via BouncyCastle, with PBKDF2 as a fallback strategy.
-- **Remote sync** — full-vault and granular per-item sync against the SeQ server over a Retrofit/OkHttp API.
+- **Remote sync** — full-vault and granular per-item sync against the Ellysia server over a Retrofit/OkHttp API.
 - **Session security** — JWT-based auth with tokens stored in `EncryptedSharedPreferences`, plus explicit lock and logout flows.
 - **Acheron design system** — a dark, Material 3 interface with a custom amethyst/laurel-gold brand identity and an animated river background.
 
@@ -38,21 +38,21 @@ Acheron is the Android client of the **SeQ** suite: an encrypted vault for crede
 The project is a two-module Gradle build:
 
 ```
-SeQ-AcheronMobile/
+Ellysia-AcheronMobile/
 ├── app/            Android client — Kotlin + Jetpack Compose
-│   └── src/main/java/com/seq/acheronmobile/
+│   └── src/main/java/com/ellysia/acheronmobile/
 │       ├── data/         network, repositories, vault crypto bridge
 │       ├── di/            simple service locator
 │       ├── navigation/    Compose navigation graph
 │       └── ui/            screens, view models, theme
 └── AcheronCore/    Vault engine — pure Java library
-    └── src/main/java/com/seq/acheron/
+    └── src/main/java/com/ellysia/acheron/
         ├── vault/         Vault, VaultFactory, User, storables
         ├── util/          cryptographic helpers
         └── exceptions/
 ```
 
-`AcheronCore` is platform-agnostic and shared with the web counterpart of SeQ via crypto interop tests, so vault logic stays consistent across clients.
+`AcheronCore` is platform-agnostic and shared with the web counterpart of Ellysia via crypto interop tests, so vault logic stays consistent across clients.
 
 ## Getting started
 
@@ -60,7 +60,7 @@ SeQ-AcheronMobile/
 
 - Android Studio (or the Gradle/AGP toolchain it ships with)
 - JDK 17+
-- A running SeQ backend reachable from your device/emulator
+- A running Ellysia backend reachable from your device/emulator
 
 ### Configure the backend URL
 
@@ -71,7 +71,7 @@ buildConfigField("String", "SEQ_BASE_URL", "\"http://192.168.1.131:5000/\"")
 ```
 
 > [!IMPORTANT]
-> Point this at your own SeQ server instance before building. Cleartext HTTP traffic is enabled for local development only — use HTTPS for anything beyond a local network.
+> Point this at your own Ellysia server instance before building. Cleartext HTTP traffic is enabled for local development only — use HTTPS for anything beyond a local network.
 
 ### Build & run
 
@@ -97,4 +97,4 @@ Minimum supported SDK is Android 7.0 (API 24); target SDK is Android 15 (API 36)
 
 ## Related projects
 
-Acheron Mobile is one client of the broader **SeQ** vault platform, alongside a web client sharing the same crypto primitives and the **Iris** companion interface for handling `.eml` files.
+Acheron Mobile is one client of the broader **Ellysia** vault platform, alongside a web client sharing the same crypto primitives and the **Iris** companion interface for handling `.eml` files.
