@@ -12,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.ellysia.acheronmobile.data.vault.StorableSchema
 import com.ellysia.acheronmobile.ui.theme.AcheronGold
 
 /**
@@ -58,6 +59,42 @@ data class StorableTypeSpec(
     fun field(key: String): FieldSpec? = fields.firstOrNull { it.key == key }
 }
 
+/** Lo que el esquema no dice de un campo porque no le compete: su aspecto. */
+private data class FieldUi(
+    val label: String,
+    val prefill: Boolean = true,
+    val numeric: Boolean = false,
+    val multiline: Boolean = false,
+    val minLength: Int = 0
+)
+
+/**
+ * Compone los [FieldSpec] de un kind: las claves y `secret` salen del contrato
+ * compartido ([StorableSchema]) y el resto de aquí.
+ *
+ * Así el catálogo de campos no está escrito dos veces dentro de esta misma app:
+ * si el contrato añade un campo, esta función falla al arrancar por falta de
+ * presentación en vez de dejar un campo invisible en el formulario.
+ */
+private fun fieldsOf(kind: String, vararg ui: Pair<String, FieldUi>): List<FieldSpec> {
+    val presentation = ui.toMap()
+    val type = requireNotNull(StorableSchema.of(kind)) { "kind '$kind' no está en StorableSchema" }
+    return type.fields.map { field ->
+        val look = requireNotNull(presentation[field.key]) {
+            "falta la presentación del campo '${field.key}' de '$kind'"
+        }
+        FieldSpec(
+            key = field.key,
+            label = look.label,
+            secret = field.secret,
+            prefill = look.prefill,
+            numeric = look.numeric,
+            multiline = look.multiline,
+            minLength = look.minLength
+        )
+    }
+}
+
 object StorableTypes {
 
     // Acentos propios de los tipos nuevos, legibles sobre el fondo casi negro.
@@ -74,10 +111,10 @@ object StorableTypes {
         newLabel = "Nueva cuenta",
         icon = Icons.Filled.Person,
         accent = null,
-        fields = listOf(
-            FieldSpec("username", "Usuario / Email"),
-            FieldSpec("domain", "Dominio / Servicio"),
-            FieldSpec("password", "Contraseña", secret = true, prefill = false)
+        fields = fieldsOf("account",
+            "username" to FieldUi("Usuario / Email"),
+            "domain" to FieldUi("Dominio / Servicio"),
+            "password" to FieldUi("Contraseña", prefill = false)
         ),
         subtitleKey = "username"
     )
@@ -89,12 +126,12 @@ object StorableTypes {
         newLabel = "Nueva tarjeta",
         icon = Icons.Filled.CreditCard,
         accent = AcheronGold,
-        fields = listOf(
-            FieldSpec("cardHolderName", "Titular"),
-            FieldSpec("cardNumber", "Número de tarjeta", secret = true, prefill = false, numeric = true, minLength = 4),
-            FieldSpec("expirationDate", "Caducidad (MM/YY)"),
-            FieldSpec("cvv", "CVV", secret = true, prefill = false, numeric = true),
-            FieldSpec("postalCode", "Código postal")
+        fields = fieldsOf("creditcard",
+            "cardHolderName" to FieldUi("Titular"),
+            "cardNumber" to FieldUi("Número de tarjeta", prefill = false, numeric = true, minLength = 4),
+            "expirationDate" to FieldUi("Caducidad (MM/YY)"),
+            "cvv" to FieldUi("CVV", prefill = false, numeric = true),
+            "postalCode" to FieldUi("Código postal")
         ),
         subtitleKey = "cardNumber"
     )
@@ -106,8 +143,8 @@ object StorableTypes {
         newLabel = "Nueva nota",
         icon = Icons.Filled.Description,
         accent = NoteBlue,
-        fields = listOf(
-            FieldSpec("content", "Contenido", multiline = true)
+        fields = fieldsOf("securenote",
+            "content" to FieldUi("Contenido", multiline = true)
         ),
         subtitleKey = "content"
     )
@@ -119,14 +156,14 @@ object StorableTypes {
         newLabel = "Nueva identidad",
         icon = Icons.Filled.Badge,
         accent = IdentityGreen,
-        fields = listOf(
-            FieldSpec("fullName", "Nombre completo"),
-            FieldSpec("email", "Email"),
-            FieldSpec("phone", "Teléfono"),
-            FieldSpec("address", "Dirección"),
-            FieldSpec("city", "Ciudad"),
-            FieldSpec("country", "País"),
-            FieldSpec("documentId", "Documento (DNI/Pasaporte)", secret = true)
+        fields = fieldsOf("identity",
+            "fullName" to FieldUi("Nombre completo"),
+            "email" to FieldUi("Email"),
+            "phone" to FieldUi("Teléfono"),
+            "address" to FieldUi("Dirección"),
+            "city" to FieldUi("Ciudad"),
+            "country" to FieldUi("País"),
+            "documentId" to FieldUi("Documento (DNI/Pasaporte)")
         ),
         subtitleKey = "fullName"
     )
@@ -138,12 +175,12 @@ object StorableTypes {
         newLabel = "Nueva cuenta bancaria",
         icon = Icons.Filled.AccountBalance,
         accent = BankSky,
-        fields = listOf(
-            FieldSpec("bankName", "Banco"),
-            FieldSpec("holder", "Titular"),
-            FieldSpec("iban", "IBAN", secret = true),
-            FieldSpec("swiftBic", "SWIFT / BIC", secret = true),
-            FieldSpec("accountNumber", "Número de cuenta", secret = true)
+        fields = fieldsOf("bankaccount",
+            "bankName" to FieldUi("Banco"),
+            "holder" to FieldUi("Titular"),
+            "iban" to FieldUi("IBAN"),
+            "swiftBic" to FieldUi("SWIFT / BIC"),
+            "accountNumber" to FieldUi("Número de cuenta")
         ),
         subtitleKey = "bankName"
     )
@@ -155,10 +192,10 @@ object StorableTypes {
         newLabel = "Nueva red Wi-Fi",
         icon = Icons.Filled.Wifi,
         accent = WifiTeal,
-        fields = listOf(
-            FieldSpec("ssid", "Nombre de red (SSID)"),
-            FieldSpec("password", "Contraseña", secret = true, prefill = false),
-            FieldSpec("securityType", "Seguridad (WPA2/WPA3)")
+        fields = fieldsOf("wifi",
+            "ssid" to FieldUi("Nombre de red (SSID)"),
+            "password" to FieldUi("Contraseña", prefill = false),
+            "securityType" to FieldUi("Seguridad (WPA2/WPA3)")
         ),
         subtitleKey = "ssid"
     )
@@ -170,11 +207,11 @@ object StorableTypes {
         newLabel = "Nueva licencia",
         icon = Icons.Filled.Key,
         accent = LicenseAmber,
-        fields = listOf(
-            FieldSpec("product", "Producto"),
-            FieldSpec("licenseKey", "Clave de licencia", secret = true),
-            FieldSpec("licensedTo", "Licenciado a"),
-            FieldSpec("version", "Versión")
+        fields = fieldsOf("license",
+            "product" to FieldUi("Producto"),
+            "licenseKey" to FieldUi("Clave de licencia"),
+            "licensedTo" to FieldUi("Licenciado a"),
+            "version" to FieldUi("Versión")
         ),
         subtitleKey = "product"
     )
