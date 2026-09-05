@@ -1,0 +1,47 @@
+# Suite unitaria de la app.
+#
+# Existe porque no existia: los tests estaban ahi y no los ejecutaba nada, asi
+# que una divergencia podia mergearse sin que nadie se enterara. Entre ellos va
+# StorableSchemaContractTest, que comprueba que el catalogo de tipos de la
+# boveda no se ha separado de AcheronSchema -- el contrato que comparten esta
+# app, la API, la SPA y el motor Java. Ese fallo es silencioso: un campo
+# renombrado en un solo sitio no viaja, y el usuario ve el hueco mucho despues.
+name: Tests
+
+on:
+  push:
+    branches: [main, develope]
+  pull_request:
+    branches: [main, develope]
+
+jobs:
+  unit:
+    name: Suite unitaria
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+
+      # El SDK de Android hace falta para compilar el modulo, aunque los tests
+      # sean JVM puros: el plugin de Android lo exige para configurar el build.
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Run unit tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+
+      # Sin esto, un fallo obliga a reproducirlo en local para ver que aserto
+      # rompio. Con el informe subido se lee desde la propia ejecucion.
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: app/build/reports/tests/testDebugUnitTest/
