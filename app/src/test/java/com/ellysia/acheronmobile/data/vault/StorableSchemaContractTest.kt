@@ -26,6 +26,13 @@ import org.junit.Test
  * La copia versionada del contrato está en `src/test/resources`. Se compara
  * contra ella y no contra el repositorio remoto a propósito: un test que
  * necesite red no es un test, es una fuente de fallos intermitentes.
+ *
+ * Los campos se comparan como CONJUNTOS, no como listas: el orden no forma
+ * parte del contrato, porque el JSON de la bóveda es un objeto con los campos
+ * por nombre y no una tupla. Hoy hay una divergencia real y viva —esta app y
+ * la SPA ordenan `creditcard` con `cvv` antes que `postalCode`, y la API y
+ * AcheronCore al revés— que no rompe nada. Si algún día el orden importa, el
+ * sitio donde decidirlo es AcheronSchema, no este test.
  */
 class StorableSchemaContractTest {
 
@@ -86,8 +93,8 @@ class StorableSchemaContractTest {
         sharedSchema().forEach { shared ->
             assertEquals(
                 "${shared.kind}: las claves de campo no coinciden con el contrato",
-                shared.fields.map { it.key },
-                StorableSchema.fieldKeys(shared.kind)
+                shared.fields.map { it.key }.toSet(),
+                StorableSchema.fieldKeys(shared.kind).toSet()
             )
         }
     }
@@ -101,8 +108,8 @@ class StorableSchemaContractTest {
             val local = StorableSchema.of(shared.kind)!!
             assertEquals(
                 "${shared.kind}: los campos secretos no coinciden con el contrato",
-                shared.fields.filter { it.secret }.map { it.key },
-                local.fields.filter { it.secret }.map { it.key }
+                shared.fields.filter { it.secret }.map { it.key }.toSet(),
+                local.fields.filter { it.secret }.map { it.key }.toSet()
             )
         }
     }
@@ -116,13 +123,13 @@ class StorableSchemaContractTest {
         StorableTypes.all.forEach { spec ->
             assertEquals(
                 "${spec.kind}: la UI no expone las claves del esquema",
-                StorableSchema.fieldKeys(spec.kind),
-                spec.fields.map { it.key }
+                StorableSchema.fieldKeys(spec.kind).toSet(),
+                spec.fields.map { it.key }.toSet()
             )
             assertEquals(
                 "${spec.kind}: la UI no respeta los campos secretos del esquema",
-                StorableSchema.of(spec.kind)!!.fields.filter { it.secret }.map { it.key },
-                spec.fields.filter { it.secret }.map { it.key }
+                StorableSchema.of(spec.kind)!!.fields.filter { it.secret }.map { it.key }.toSet(),
+                spec.fields.filter { it.secret }.map { it.key }.toSet()
             )
         }
     }
