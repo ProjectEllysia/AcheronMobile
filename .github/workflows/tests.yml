@@ -37,15 +37,25 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      # La app depende de com.ellysia:acheron-core, que vive en GitHub Packages
-      # y es privado: GitHub Packages no permite descargas anonimas ni siquiera
-      # de paquetes publicos. settings.gradle.kts ya cae a estas dos variables
-      # cuando no hay gpr.user / gpr.token en ~/.gradle/gradle.properties.
+      # La app depende de com.ellysia:acheron-core, publicado por OTRO
+      # repositorio privado (ProjectEllysia/AcheronCore).
+      #
+      # Hace falta un PAT y no vale el GITHUB_TOKEN del runner. Los paquetes
+      # Maven de GitHub Packages son siempre de REPOSITORIO --la propia URL del
+      # registry lleva el repo dentro-- y heredan sus permisos, asi que no
+      # ofrecen "Manage Actions access" como si hacen los de organizacion. El
+      # GITHUB_TOKEN de este workflow solo alcanza a este repositorio, y por
+      # eso la lectura devuelve 404: GitHub Packages oculta asi lo que existe
+      # pero no puedes ver.
+      #
+      # El secreto PACKAGES_TOKEN debe ser un PAT con read:packages y repo
+      # (repo hace falta porque AcheronCore es privado). Sin el, la resolucion
+      # falla con "Could not find com.ellysia:acheron-core".
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest --no-daemon
         env:
           GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
 
       # Sin esto, un fallo obliga a reproducirlo en local para ver que aserto
       # rompio. Con el informe subido se lee desde la propia ejecucion.
