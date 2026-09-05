@@ -42,7 +42,7 @@ jobs:
       # de paquetes publicos. settings.gradle.kts ya cae a estas dos variables
       # cuando no hay gpr.user / gpr.token en ~/.gradle/gradle.properties.
       - name: Run unit tests
-        run: ./gradlew :app:testDebugUnitTest --no-daemon
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --refresh-dependencies
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
