@@ -18,6 +18,9 @@ jobs:
   unit:
     name: Suite unitaria
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
 
     steps:
       - uses: actions/checkout@v4
@@ -34,8 +37,15 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      # La app depende de com.ellysia:acheron-core, que vive en GitHub Packages
+      # y es privado: GitHub Packages no permite descargas anonimas ni siquiera
+      # de paquetes publicos. settings.gradle.kts ya cae a estas dos variables
+      # cuando no hay gpr.user / gpr.token en ~/.gradle/gradle.properties.
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest --no-daemon
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Sin esto, un fallo obliga a reproducirlo en local para ver que aserto
       # rompio. Con el informe subido se lee desde la propia ejecucion.
