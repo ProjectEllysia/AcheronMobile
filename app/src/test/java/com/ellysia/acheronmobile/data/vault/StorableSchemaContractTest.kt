@@ -11,7 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * El catálogo de esta app tiene que seguir a `AcheronSchema`.
+ * El catálogo de esta app tiene que seguir a `schema/schema.json` de AcheronCore.
  *
  * Los tipos de storable están escritos en cuatro sitios y en cuatro lenguajes:
  * aquí, en la SPA (`storableSchema.js`), en la API (`storable_specs.py`) y en
@@ -23,16 +23,18 @@ import org.junit.Test
  * demás esperan `cardHolderName`, el campo no viaja. No hay excepción ni log;
  * el usuario ve que su tarjeta perdió el titular al abrirla desde la web.
  *
- * La copia versionada del contrato está en `src/test/resources`. Se compara
- * contra ella y no contra el repositorio remoto a propósito: un test que
- * necesite red no es un test, es una fuente de fallos intermitentes.
+ * La copia versionada del contrato está en `src/test/resources` y sale de
+ * AcheronCore @ `v2.2.0`, la misma versión del motor que fija
+ * `app/build.gradle.kts`: al subir una hay que subir la otra. Se compara contra
+ * la copia y no contra el repositorio remoto a propósito: un test que necesite
+ * red no es un test, es una fuente de fallos intermitentes.
  *
  * Los campos se comparan como CONJUNTOS, no como listas: el orden no forma
  * parte del contrato, porque el JSON de la bóveda es un objeto con los campos
  * por nombre y no una tupla. Hoy hay una divergencia real y viva —esta app y
  * la SPA ordenan `creditcard` con `cvv` antes que `postalCode`, y la API y
  * AcheronCore al revés— que no rompe nada. Si algún día el orden importa, el
- * sitio donde decidirlo es AcheronSchema, no este test.
+ * sitio donde decidirlo es el catálogo de AcheronCore, no este test.
  */
 class StorableSchemaContractTest {
 
@@ -46,8 +48,8 @@ class StorableSchemaContractTest {
     private fun sharedSchema(): List<SharedType> {
         val stream = javaClass.classLoader!!.getResourceAsStream("acheron-schema.json")
         assertNotNull(
-            "No está la copia de AcheronSchema en src/test/resources/acheron-schema.json. " +
-                "Se copia del repositorio AcheronSchema a un tag concreto.",
+            "No está la copia del catálogo en src/test/resources/acheron-schema.json. " +
+                "Se copia de schema/schema.json de AcheronCore, en el tag del motor que usa la app.",
             stream
         )
         val root = Json.parseToJsonElement(stream!!.bufferedReader().readText()).jsonObject

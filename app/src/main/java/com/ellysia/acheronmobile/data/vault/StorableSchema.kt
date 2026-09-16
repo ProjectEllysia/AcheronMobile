@@ -11,9 +11,10 @@ package com.ellysia.acheronmobile.data.vault
  * (`AcheronCore`). Un nombre distinto en un solo sitio hace que ese cliente no
  * encuentre el campo, sin ningún error que lo delate.
  *
- * La fuente de verdad común es el repositorio
- * [AcheronSchema](https://github.com/ProjectEllysia/AcheronSchema);
- * `StorableSchemaContractTest` comprueba que esta copia no diverge de él.
+ * La fuente de verdad común es `schema/schema.json` en el repositorio
+ * [AcheronCore](https://github.com/ProjectEllysia/AcheronCore), en el tag de la
+ * versión del motor que usa esta app; `StorableSchemaContractTest` comprueba
+ * que esta copia no diverge de él.
  *
  * Vive fuera de `ui/` a propósito. Antes el catálogo estaba dentro de
  * `ui/vault/StorableTypes.kt`, mezclado con iconos de Compose, colores de
