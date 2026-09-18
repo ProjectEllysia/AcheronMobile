@@ -80,8 +80,21 @@ dependencies {
     // SplashScreen API (retrocompatible) — pantalla de inicio de marca
     implementation("androidx.core:core-splashscreen:1.0.1")
 
-    // AcheronCore — vault engine (ProjectEllysia/AcheronCore)
-    implementation("com.ellysia:acheron-core:1.0.0")
+    // AcheronCore — motor de la bóveda (ProjectEllysia/AcheronCore).
+    //
+    // Versión EXACTA y sin rangos, a propósito: en un contrato que decide qué
+    // campos se cifran, una actualización automática es un cambio que nadie ha
+    // revisado.
+    //
+    // El número no significa «esta versión del motor», significa «esta pareja
+    // de motores es interoperable»: la app con acheron-core 2.4.0 y la web con
+    // acheron-core-js 2.4.0 leen y escriben las mismas bóvedas. De ahí que este
+    // número tenga que seguir al del resto de la casa aunque aquí no cambie
+    // nada.
+    //
+    // Este mismo tag es el del catálogo que la app declara seguir; lo lee
+    // `scripts/verify_acheron_catalog.py` de esta línea.
+    implementation("com.ellysia:acheron-core:2.4.0")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")

@@ -15,14 +15,14 @@ on:
     branches: [main, develope]
     paths:
       - 'app/src/test/resources/acheron-schema.json'
-      - 'app/src/test/resources/acheron-schema.version'
+      - 'app/build.gradle.kts'
       - 'scripts/verify_acheron_catalog.py'
       - '.github/workflows/catalogo.yml'
   pull_request:
     branches: [main, develope]
     paths:
       - 'app/src/test/resources/acheron-schema.json'
-      - 'app/src/test/resources/acheron-schema.version'
+      - 'app/build.gradle.kts'
       - 'scripts/verify_acheron_catalog.py'
       - '.github/workflows/catalogo.yml'
   schedule:
