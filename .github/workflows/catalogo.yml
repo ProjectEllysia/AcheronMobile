@@ -1,0 +1,43 @@
+# La copia del catálogo de Acheron sigue al original.
+#
+# Va aparte de "Tests" porque depende de la red: un fallo al descargar el
+# original no debe teñir de rojo la suite unitaria, que no tiene nada que ver.
+name: Catálogo de Acheron
+
+# El cron es la mitad importante, y no un extra. Un PR de este repositorio no
+# puede fallar porque alguien haya cambiado el catálogo en AcheronCore, y así
+# es exactamente como se produjo la divergencia real: `matchKey` se añadió allí
+# en septiembre y esta copia estuvo semanas sin enterarse, con la suite en
+# verde. El desfase no lo introduce quien toca la copia, sino quien toca el
+# original.
+on:
+  push:
+    branches: [main, develope]
+    paths:
+      - 'app/src/test/resources/acheron-schema.json'
+      - 'app/src/test/resources/acheron-schema.version'
+      - 'scripts/verify_acheron_catalog.py'
+      - '.github/workflows/catalogo.yml'
+  pull_request:
+    branches: [main, develope]
+    paths:
+      - 'app/src/test/resources/acheron-schema.json'
+      - 'app/src/test/resources/acheron-schema.version'
+      - 'scripts/verify_acheron_catalog.py'
+      - '.github/workflows/catalogo.yml'
+  schedule:
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  catalogo:
+    name: La copia sigue al original
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Sin `setup-python`: el runner de Ubuntu ya trae python3, y el script no
+      # usa nada fuera de la biblioteca estándar a propósito, para que corra
+      # igual desde un portátil que desde aquí.
+      - name: Verificar
+        run: python3 scripts/verify_acheron_catalog.py
