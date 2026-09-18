@@ -34,8 +34,17 @@ jobs:
 
       # El SDK de Android hace falta para compilar el modulo, aunque los tests
       # sean JVM puros: el plugin de Android lo exige para configurar el build.
+      #
+      # `packages: ''` no es decoracion. Por defecto esta accion instala el
+      # paquete `tools`, que Google RETIRO del repositorio del SDK, asi que
+      # sdkmanager sale con "Failed to find package 'tools'" y tumba el job
+      # antes de compilar nada. Vaciando la lista se instalan solo las
+      # cmdline-tools, que es lo unico que hace falta: lo demas lo resuelve el
+      # plugin de Android desde el build.
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: ''
 
       # La app depende de com.ellysia:acheron-core, que publica OTRO
       # repositorio: ProjectEllysia/AcheronCore.
