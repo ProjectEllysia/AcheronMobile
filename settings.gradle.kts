@@ -19,10 +19,11 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // ProjectEllysia/AcheronCore es privado y GitHub Packages no permite
-        // descargas anonimas ni siquiera de paquetes publicos: hace falta un PAT
-        // con read:packages (+ repo, por ser repo privado). Ponlo en
-        // ~/.gradle/gradle.properties como gpr.user / gpr.token.
+        // GitHub Packages no permite descargas anonimas ni siquiera de
+        // paquetes publicos, asi que hacen falta credenciales: un token con
+        // read:packages en ~/.gradle/gradle.properties como gpr.user /
+        // gpr.token. Ya NO hace falta el scope repo: AcheronCore paso a ser
+        // publico, y con el su paquete Maven.
         maven {
             name = "AcheronCore"
             url = uri("https://maven.pkg.github.com/ProjectEllysia/AcheronCore")
