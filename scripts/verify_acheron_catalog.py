@@ -16,11 +16,14 @@ durara: una divergencia que no rompe nada no se descubre, se acumula. La
 siguiente podría no ser inerte, porque un campo renombrado sí viaja al JSON de
 la bóveda.
 
-**Qué versión se compara.** La que declara ``acheron-schema.version``, al lado
-de la copia. Aquí hay que decirlo a mano, y conviene saber por qué: esta app
-fija ``com.ellysia:acheron-core:1.0.0``, que es la versión del MOTOR
-criptográfico, no la del catálogo que sigue. Son dos cosas distintas y hoy no
-coinciden, así que deducir una de la otra daría un tag equivocado.
+**Qué versión se compara.** La del motor que fija ``app/build.gradle.kts``, y no
+un fichero aparte. Se puede porque el motor y el catálogo salen del MISMO tag de
+``AcheronCore``: ``schema/schema.json`` en ``v2.4.0`` es el catálogo que hace
+pareja con ``acheron-core`` 2.4.0, por construcción.
+
+Nació declarándose a mano, cuando la app iba por el motor 1.0.0 y el catálogo
+por el 2.4.0. Al alinear las dos, el fichero pasó a ser una segunda fuente para
+lo mismo —es decir, algo que puede quedarse atrás—, así que se quitó.
 
     python3 scripts/verify_acheron_catalog.py
 """
@@ -28,6 +31,7 @@ coinciden, así que deducir una de la otra daría un tag equivocado.
 from __future__ import annotations
 
 import json
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -36,20 +40,20 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 RECURSOS = RAIZ / "app" / "src" / "test" / "resources"
 COPIA = RECURSOS / "acheron-schema.json"
-VERSION = RECURSOS / "acheron-schema.version"
+GRADLE = RAIZ / "app" / "build.gradle.kts"
+MOTOR = re.compile(r'com\.ellysia:acheron-core:([0-9]+\.[0-9]+\.[0-9]+)')
 ORIGEN = "https://raw.githubusercontent.com/ProjectEllysia/AcheronCore/{tag}/schema/schema.json"
 
 
 def tag_declarado() -> str:
-    if not VERSION.is_file():
+    """El tag de AcheronCore que sigue esta app, leido de su dependencia Gradle."""
+    encontrado = MOTOR.search(GRADLE.read_text(encoding="utf-8"))
+    if not encontrado:
         raise SystemExit(
-            f"Falta {VERSION.relative_to(RAIZ).as_posix()}, que declara que tag del "
-            "catalogo sigue esta app (por ejemplo: v2.4.0)."
+            f"{GRADLE.relative_to(RAIZ).as_posix()} no fija com.ellysia:acheron-core a una "
+            "version exacta. El catalogo se compara contra un tag, y un rango no senala ninguno."
         )
-    tag = VERSION.read_text(encoding="utf-8").strip()
-    if not tag.startswith("v"):
-        raise SystemExit(f"'{tag}' no parece un tag de AcheronCore; se espera algo como v2.4.0.")
-    return tag
+    return f"v{encontrado.group(1)}"
 
 
 def catalogo_original(tag: str) -> dict:
@@ -108,8 +112,9 @@ def main() -> int:
         f"\nSi el catalogo cambio y esta app debe seguirlo:\n"
         f"  curl -sL {ORIGEN.format(tag=tag)} -o {COPIA.relative_to(RAIZ).as_posix()}\n"
         f"  ./gradlew :app:testDebugUnitTest\n\n"
-        f"Si esta app debe quedarse en un catalogo anterior, cambia el tag de "
-        f"{VERSION.relative_to(RAIZ).as_posix()} — pero eso es una decision, no un arreglo.",
+        f"Si esta app debe quedarse atras, baja la version de com.ellysia:acheron-core en "
+        f"{GRADLE.relative_to(RAIZ).as_posix()} — pero eso desempareja los motores, "
+        f"y es una decision, no un arreglo.",
         file=sys.stderr,
     )
     return 1
